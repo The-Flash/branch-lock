@@ -5,42 +5,39 @@ import (
 	"testing"
 )
 
-func TestBranchMapAdd(t *testing.T) {
-	branchMap := NewBranchMap()
-	for i := range 10 {
-		go func(name string) {
-			branchMap.Add(name + fmt.Sprint(i))
-		}("feat/new-branch")
-		go func(name string) {
-			branchMap.Add(name)
-		}("feat/new-branch")
-	}
-}
 func TestBranchMapLock(t *testing.T) {
 	branchMap := NewBranchMap()
 	name := "feat/new-branch"
-	branchMap.Add(name)
 	for _ = range 10 {
 		go func() {
 			branchMap.Lock(name)
 		}()
 	}
+	for i := range 10 {
+		go func(i int) {
+			branchMap.Lock("feat/new" + fmt.Sprint(i))
+		}(i)
+	}
 }
+
 func TestBranchMapUnLock(t *testing.T) {
 	branchMap := NewBranchMap()
 	name := "feat/new-branch"
-	branchMap.Add(name)
 	for _ = range 10 {
 		go func() {
 			branchMap.UnLock(name)
 		}()
+	}
+	for i := range 10 {
+		go func(i int) {
+			branchMap.UnLock("feat/new" + fmt.Sprint(i))
+		}(i)
 	}
 }
 func TestBranchMapIsLocked(t *testing.T) {
 
 	branchMap := NewBranchMap()
 	name := "feat/new-branch"
-	branchMap.Add(name)
 	for _ = range 10 {
 		go func() {
 			branchMap.Lock(name)

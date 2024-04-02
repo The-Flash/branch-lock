@@ -13,7 +13,7 @@ type branch struct {
 }
 
 type branchMap struct {
-	mu       sync.RWMutex
+	mu       sync.Mutex
 	branches []*branch
 }
 
@@ -31,13 +31,18 @@ func (b *branchMap) getBranchIndex(name string) int {
 }
 
 func (b *branchMap) getBranch(name string) *branch {
+	index := b.getBranchIndex(name)
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	index := b.getBranchIndex(name)
 	if br := b.branches[index]; br == nil {
-		b.Add(name)
+		b.add(name)
 	}
 	return b.branches[index]
+}
+
+func (b *branchMap) add(name string) {
+	index := b.getBranchIndex(name)
+	b.branches[index] = &branch{}
 }
 
 func (b *branchMap) Get(name string) *branch {
@@ -45,19 +50,10 @@ func (b *branchMap) Get(name string) *branch {
 	return branch
 }
 
-func (b *branchMap) Add(name string) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	index := b.getBranchIndex(name)
-	b.branches[index] = &branch{}
-}
-
 // Lock lock a branch for push
 func (b *branchMap) Lock(name string) {
 	b.mu.Lock()
 	br := b.getBranch(name)
-	defer b.mu.Unlock()
-	br.Lock()
 	defer br.Unlock()
 	br.isLocked = true
 }
