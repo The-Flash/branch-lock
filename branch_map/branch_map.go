@@ -9,16 +9,17 @@ const MAX_BRANCHES = 65535
 
 type branch struct {
 	sync.RWMutex
+	name     string
 	isLocked bool
 }
 
 type branchMap struct {
 	mu       sync.Mutex
-	branches []*branch
+	branches [][]*branch
 }
 
 func NewBranchMap() branchMap {
-	b := make([]*branch, MAX_BRANCHES, MAX_BRANCHES)
+	b := make([][]*branch, MAX_BRANCHES)
 	return branchMap{
 		branches: b,
 	}
@@ -34,15 +35,33 @@ func (b *branchMap) getBranch(name string) *branch {
 	index := b.getBranchIndex(name)
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if br := b.branches[index]; br == nil {
-		b.add(name)
+	br := b.branches[index]
+	for _, branch := range br {
+		if branch.name == name {
+			return branch
+		}
 	}
-	return b.branches[index]
+	return nil
 }
 
-func (b *branchMap) add(name string) {
+// Add add a branch to the map
+func (b *branchMap) Add(name string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	index := b.getBranchIndex(name)
-	b.branches[index] = &branch{}
+	mapArray := b.branches[index]
+	if mapArray == nil {
+		b.branches[index] = make([]*branch, 0)
+	}
+	arr := b.branches[index]
+	for _, branch := range arr {
+		if branch.name == name {
+			return
+		}
+	}
+	newBranch := &branch{name: name}
+	arr = append(arr, newBranch)
+	b.branches[index] = arr
 }
 
 func (b *branchMap) Get(name string) *branch {
@@ -52,8 +71,11 @@ func (b *branchMap) Get(name string) *branch {
 
 // Lock lock a branch for push
 func (b *branchMap) Lock(name string) {
-	b.mu.Lock()
 	br := b.getBranch(name)
+	if br == nil {
+		return
+	}
+	br.Lock()
 	defer br.Unlock()
 	br.isLocked = true
 }
@@ -61,6 +83,9 @@ func (b *branchMap) Lock(name string) {
 // UnLock unlock a branch for push
 func (b *branchMap) UnLock(name string) {
 	br := b.getBranch(name)
+	if br == nil {
+		return
+	}
 	br.Lock()
 	defer br.Unlock()
 	br.isLocked = false
@@ -69,6 +94,10 @@ func (b *branchMap) UnLock(name string) {
 // IsLocked a push is currently happening on a branch or not
 func (b *branchMap) IsLocked(name string) bool {
 	br := b.getBranch(name)
+	if br == nil {
+		return false
+	}
+
 	br.RLock()
 	defer br.RUnlock()
 	return br.isLocked
